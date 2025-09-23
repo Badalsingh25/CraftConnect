@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { API_BASE_URL } from "../config";
 
 export default function Products() {
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -28,6 +29,15 @@ export default function Products() {
     fetchProducts();
   }, []);
 
+  function getImageUrl(img) {
+    if (!img) return '';
+    // If already absolute, return as-is
+    if (/^https?:\/\//i.test(img)) return img;
+    // Ensure leading slash
+    const path = img.startsWith('/') ? img : `/${img}`;
+    return `${API_BASE_URL}${path}`;
+  }
+
   async function deleteProduct(id) {
     if (!confirm("Delete this product?")) return;
     try {
@@ -38,9 +48,31 @@ export default function Products() {
       });
       if (!res.ok) throw new Error("Delete failed");
       setProducts((prev) => prev.filter((p) => p._id !== id));
+      alert("Product deleted successfully!");
     } catch (e) {
       alert(e.message || "Delete failed");
     }
+  }
+
+  function editProduct(product) {
+    // Navigate to dashboard with edit mode
+    const editUrl = `/dashboard?edit=${product._id}&name=${encodeURIComponent(product.name)}&price=${product.price || ''}&description=${encodeURIComponent(product.description || '')}&story=${encodeURIComponent(product.story || '')}`;
+    window.location.href = editUrl;
+  }
+
+  function viewProduct(product) {
+    // Open product in new tab for public view
+    const viewUrl = `/products?id=${product._id}`;
+    window.open(viewUrl, '_blank');
+  }
+
+  function copyProductLink(product) {
+    const shareUrl = buildShareUrl(product._id);
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      alert('Product link copied to clipboard!');
+    }).catch(() => {
+      alert('Failed to copy link');
+    });
   }
 
   function buildShareUrl(productId) {
@@ -177,7 +209,7 @@ export default function Products() {
                 <div className="relative h-48 overflow-hidden">
                   {product.image ? (
                     <img
-                      src={product.image}
+                      src={getImageUrl(product.image)}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
@@ -235,10 +267,16 @@ export default function Products() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2 pt-4 border-t border-gray-100">
-                    <button className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm font-medium">
+                    <button 
+                      onClick={() => editProduct(product)}
+                      className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm font-medium"
+                    >
                       Edit
                     </button>
-                    <button className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm font-medium">
+                    <button 
+                      onClick={() => viewProduct(product)}
+                      className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm font-medium"
+                    >
                       View
                     </button>
                     <button 
@@ -248,7 +286,7 @@ export default function Products() {
                       Delete
                     </button>
                     <button
-                      onClick={() => navigator.clipboard.writeText(buildShareUrl(product._id))}
+                      onClick={() => copyProductLink(product)}
                       className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-sm font-medium"
                     >
                       Copy Link

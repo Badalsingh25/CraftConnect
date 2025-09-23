@@ -1,8 +1,37 @@
 import React from "react";
 import { useCart } from "../state/CartContext.jsx";
+import { API_BASE_URL } from "../config";
+import { useAuth } from "../state/AuthContext.jsx";
 
 export default function Checkout() {
   const { items, subtotal, updateQty, removeFromCart, clearCart } = useCart();
+  const { user } = useAuth();
+
+  async function placeOrder() {
+    if (items.length === 0) return;
+    try {
+      const token = localStorage.getItem("cc_token") || localStorage.getItem("token");
+      if (!token) {
+        alert("Please login to place an order.");
+        return;
+      }
+      const res = await fetch(`${API_BASE_URL}/api/orders/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          customerName: user?.name || 'Customer',
+          items: items.map(i => ({ _id: i._id, quantity: i.quantity })),
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to place order');
+      clearCart();
+      alert('Order placed successfully!');
+      window.location.href = '/dashboard/orders';
+    } catch (e) {
+      alert(e.message || 'Failed to place order');
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-10">
@@ -44,7 +73,7 @@ export default function Checkout() {
                 <span>Calculated at next step</span>
               </div>
               <button
-                onClick={() => { alert("Prototype checkout submitted! (No payment processed)"); clearCart(); }}
+                onClick={placeOrder}
                 className="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
               >
                 Place Order

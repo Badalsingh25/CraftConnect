@@ -1,0 +1,31 @@
+runtime: nodejs20
+service: backend
+
+# Environment variables for production
+env_variables:
+  NODE_ENV: production
+  MONGO_URI: ""
+  JWT_SECRET: ""
+  GEMINI_API_KEY: ""
+  FRONTEND_ORIGIN: "https://craftconnect-hackathon-2025.uc.r.appspot.com"
+
+# Basic scaling for free tier
+automatic_scaling:
+  min_instances: 0
+  max_instances: 2
+  target_cpu_utilization: 0.6
+
+# Health check configuration
+readiness_check:
+  path: "/api/health"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+
+liveness_check:
+  path: "/api/health"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 4
+  success_threshold: 2

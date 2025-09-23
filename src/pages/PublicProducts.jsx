@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { useToast } from "../ui/ToastProvider.jsx";
 import { API_BASE_URL } from "../config";
+import { useCart } from "../state/CartContext.jsx";
+import { useWishlist } from "../state/WishlistContext.jsx";
+import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function PublicProducts() {
+
   const { show } = useToast();
+  const { addToCart } = useCart();
+  const { toggle, contains } = useWishlist();
+  const navigate = useNavigate();
   const [shareOpenId, setShareOpenId] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -64,6 +72,13 @@ export default function PublicProducts() {
   }, [searchTerm]);
 
   const sortedProducts = products;
+
+  function getImageUrl(img) {
+    if (!img) return '';
+    if (/^https?:\/\//i.test(img)) return img; // already absolute
+    const path = img.startsWith('/') ? img : `/${img}`;
+    return `${API_BASE_URL}${path}`;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
@@ -188,11 +203,13 @@ export default function PublicProducts() {
                     {/* Product Image */}
                     <div className="relative h-64 overflow-hidden">
                       {product.image ? (
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
+                        <Link to={`/products/${product._id}`}>
+                          <img
+                            src={getImageUrl(product.image)}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
+                        </Link>
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
                           <span className="text-4xl text-gray-400">🎨</span>
@@ -208,7 +225,9 @@ export default function PublicProducts() {
                     {/* Product Info */}
                     <div className="p-6">
                       <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-1">
-                        {product.name}
+                        <Link to={`/products/${product._id}`} className="hover:underline">
+                          {product.name}
+                        </Link>
                       </h3>
                       {typeof product.price === 'number' && (
                         <div className="text-lg font-semibold text-emerald-700 mb-2">
@@ -257,18 +276,26 @@ export default function PublicProducts() {
                       <div className="flex gap-2 relative">
                         <button
                           onClick={() => {
-                            try {
-                              const evt = new CustomEvent('add-to-cart', { detail: product });
-                              window.dispatchEvent(evt);
-                            } catch {}
+                            addToCart(product);
+                            show(`${product.name} added to cart`, 'success');
+                            navigate('/cart');
                           }}
                           className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 text-sm font-medium"
                         >
-                          View Details
+                          Add to Cart
                         </button>
-                        <a href="/checkout" className="px-4 py-2 border border-indigo-600 text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors duration-200 text-sm font-medium">
-                          ♥
-                        </a>
+                        <button
+                          onClick={() => {
+                            toggle(product);
+                            const inWish = contains(product._id);
+                            show(inWish ? 'Removed from wishlist' : 'Added to wishlist', inWish ? 'info' : 'success');
+                          }}
+                          className={`px-4 py-2 border rounded-lg transition-colors duration-200 text-sm font-medium ${contains(product._id) ? 'border-pink-600 text-pink-600 bg-pink-50 hover:bg-pink-100' : 'border-indigo-600 text-indigo-600 hover:bg-indigo-50'}`}
+                          aria-label="Toggle wishlist"
+                          title={contains(product._id) ? 'Remove from wishlist' : 'Add to wishlist'}
+                        >
+                          {contains(product._id) ? '❤' : '♡'}
+                        </button>
                         <button
                           onClick={() => setShareOpenId(shareOpenId === product._id ? null : product._id)}
                           className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-sm"

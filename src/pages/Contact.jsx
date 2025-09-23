@@ -13,8 +13,8 @@ export default function Contact() {
 
   async function onSubmit(e) {
     e.preventDefault();
-    if (!isAuthenticated) {
-      show("Please log in as an artisan to send a message.", "error");
+    if (!name.trim()) {
+      show("Please enter your name.", "error");
       return;
     }
     if (!message.trim()) {
@@ -23,15 +23,36 @@ export default function Contact() {
     }
     try {
       setSending(true);
+      
+      // Try authenticated request first, then fallback to public contact
+      let res;
       const token = localStorage.getItem("cc_token");
-      const res = await fetch(`${API_BASE_URL}/api/auth/contact`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ subject: `Contact from ${name || "Artisan"}`, message }),
-      });
+      
+      if (isAuthenticated && token) {
+        res = await fetch(`${API_BASE_URL}/api/auth/contact`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ subject: `Contact from ${name}`, message }),
+        });
+      } else {
+        // Public contact endpoint
+        res = await fetch(`${API_BASE_URL}/api/contact/public`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ 
+            name: name.trim(), 
+            email: email.trim() || "no-email@provided.com", 
+            subject: `Public Contact from ${name}`, 
+            message 
+          }),
+        });
+      }
+      
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || "Failed to send");
       setName(""); setEmail(""); setMessage("");

@@ -1,6 +1,99 @@
 import { generateAIContent, generateAIContentFromImage } from "../utils/aiHelper.js";
 import Product from "../models/productModel.js";
 import { protect } from "../middleware/authMiddleware.js";
+import nodemailer from "nodemailer";
+import Review from "../models/Review.js";
+
+// Helper function to send admin notification
+async function sendAdminNotification(product, artisan) {
+  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_EMAIL_APP_PASSWORD) {
+    console.log("⚠️ Admin email not configured, skipping notification");
+    return;
+  }
+
+  try {
+    console.log("📧 Sending admin notification for product:", product.name);
+    
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.ADMIN_EMAIL,
+        pass: process.env.ADMIN_EMAIL_APP_PASSWORD,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.ADMIN_EMAIL,
+      to: process.env.ADMIN_EMAIL,
+      subject: `[CraftConnect] New Product Added: ${product.name}`,
+      html: `
+        <h2>🎨 New Product Added to CraftConnect</h2>
+        <p><strong>Product Name:</strong> ${product.name}</p>
+        <p><strong>Artisan:</strong> ${artisan.name} (${artisan.email})</p>
+        <p><strong>Price:</strong> ${product.price ? `₹${product.price}` : 'Not specified'}</p>
+        <p><strong>Category:</strong> ${product.category || 'Not specified'}</p>
+        <p><strong>Region:</strong> ${product.region || 'Not specified'}</p>
+        <p><strong>Description:</strong> ${product.description}</p>
+        <p><strong>Story:</strong> ${product.story}</p>
+        <p><strong>Added:</strong> ${new Date().toLocaleString()}</p>
+        <hr>
+        <p>View product in admin panel or marketplace.</p>
+      `,
+    };
+
+// Reviews (defined after helper function has fully closed)
+
+    const result = await transporter.sendMail(mailOptions);
+    console.log("✅ Admin notification sent successfully:", result.messageId);
+  } catch (error) {
+    console.error("❌ Failed to send admin notification:", error.message);
+    throw error;
+  }
+}
+
+// Reviews (public: only approved reviews are returned)
+export const getProductReviews = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const reviews = await Review.find({ product: id, isApproved: true })
+      .populate('user', 'name')
+      .sort({ createdAt: -1 });
+    res.json(reviews);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Add a review (logged-in user); moderation may apply
+export const addProductReview = async (req, res) => {
+  try {
+    const { id } = req.params; // product id
+    const { rating, text } = req.body;
+    if (!rating || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: 'Rating must be between 1 and 5' });
+    }
+    const product = await Product.findById(id);
+    if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    await Review.create({ product: id, user: req.user._id, rating, text });
+
+    // Update aggregate rating using approved reviews only
+    const agg = await Review.aggregate([
+      { $match: { product: product._id, isApproved: true } },
+      { $group: { _id: '$product', avg: { $avg: '$rating' }, count: { $sum: 1 } } }
+    ]);
+    if (agg.length > 0) {
+      product.rating = Number(agg[0].avg.toFixed(1));
+      product.ratingCount = agg[0].count;
+      await product.save();
+    }
+    res.status(201).json({ message: 'Review added' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
 // Add new product with all fields (image, artisan, AI content)
 export const addProduct = async (req, res) => {
@@ -60,6 +153,14 @@ export const addProduct = async (req, res) => {
       stock: typeof stock === 'number' && !Number.isNaN(stock) ? stock : undefined,
       artisan: req.user._id,           // Set from JWT middleware
     });
+
+    // Send admin notification email
+    try {
+      await sendAdminNotification(product, req.user);
+    } catch (emailError) {
+      console.error("Failed to send admin notification:", emailError);
+      // Don't fail the product creation if email fails
+    }
 
     res.status(201).json(product);
   } catch (error) {

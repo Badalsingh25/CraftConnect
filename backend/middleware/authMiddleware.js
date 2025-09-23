@@ -34,3 +34,13 @@ export const protect = async (req, res, next) => {
 
 // Export as default as well for backward compatibility
 export default protect;
+
+// Admin guard middleware
+export const isAdmin = (req, res, next) => {
+  try {
+    if (req.user && req.user.role === 'admin') return next();
+    return res.status(403).json({ message: 'Admin access required' });
+  } catch (e) {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+};

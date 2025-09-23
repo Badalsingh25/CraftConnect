@@ -3,11 +3,17 @@ import { Menu, X } from "lucide-react"; // for mobile icons
 import { Link } from "react-router-dom";
 import { useAuth } from "../state/AuthContext.jsx";
 import logo from "../assets/logo.jpg"; // Your logo
+import { useCart } from "../state/CartContext.jsx";
+import { useWishlist } from "../state/WishlistContext.jsx";
+import MiniCart from "./MiniCart.jsx";
 
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [miniOpen, setMiniOpen] = useState(false);
   const { isAuthenticated, logout } = useAuth();
+  const { totalItems: cartCount } = useCart();
+  const { totalItems: wishCount } = useWishlist();
 
   return (
     <nav className="bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 sticky top-0 z-50 border-b border-gray-100">
@@ -37,8 +43,30 @@ export default function Navbar() {
           )}
           <Link to="/products" className="hover:text-gray-900 transition-colors">Products</Link>
           <Link to="/dashboard" className="hover:text-gray-900 transition-colors">Dashboard</Link>
+          {isAuthenticated && (
+            <Link to="/my-orders" className="hover:text-gray-900 transition-colors">My Orders</Link>
+          )}
           <Link to="/contact" className="hover:text-gray-900 transition-colors">Contact</Link>
           <Link to="/impact" className="hover:text-gray-900 transition-colors">Our Impact</Link>
+          <Link to="/wishlist" className="relative hover:text-gray-900 transition-colors">
+            Wishlist
+            {wishCount > 0 && (
+              <span className="absolute -top-2 -right-3 text-xs bg-pink-600 text-white rounded-full px-1.5 py-0.5">
+                {wishCount}
+              </span>
+            )}
+          </Link>
+          <button
+            onClick={() => setMiniOpen(true)}
+            className="relative hover:text-gray-900 transition-colors"
+          >
+            Cart
+            {cartCount > 0 && (
+              <span className="absolute -top-2 -right-3 text-xs bg-indigo-600 text-white rounded-full px-1.5 py-0.5">
+                {cartCount}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Auth Buttons (Desktop) */}
@@ -98,7 +126,12 @@ export default function Navbar() {
           )}
           <Link to="/products" className="block text-gray-700 hover:text-indigo-600">Products</Link>
           <Link to="/dashboard" className="block text-gray-700 hover:text-indigo-600">Dashboard</Link>
+          {isAuthenticated && (
+            <Link to="/my-orders" className="block text-gray-700 hover:text-indigo-600">My Orders</Link>
+          )}
           <Link to="/contact" className="block text-gray-700 hover:text-indigo-600">Contact</Link>
+          <Link to="/wishlist" className="block text-gray-700 hover:text-indigo-600">Wishlist {wishCount > 0 ? `(${wishCount})` : ''}</Link>
+          <button onClick={() => setMiniOpen(true)} className="block text-left w-full text-gray-700 hover:text-indigo-600">Cart {cartCount > 0 ? `(${cartCount})` : ''}</button>
 
           <div className="flex space-x-4 pt-4">
             {isAuthenticated ? (
@@ -130,6 +163,7 @@ export default function Navbar() {
           </div>
         </div>
       )}
+      <MiniCart open={miniOpen} onClose={() => setMiniOpen(false)} />
     </nav>
   );
 }

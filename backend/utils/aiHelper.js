@@ -6,7 +6,7 @@ import path from 'path';
 function getGenAIOrThrow() {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
-    throw new Error('GEMINI_API_KEY is not configured; AI features are disabled');
+    throw new Error('GEMINI_API_KEY is not configured in environment variables. Please set your Google Gemini API key.');
   }
   return new GoogleGenerativeAI(key);
 }

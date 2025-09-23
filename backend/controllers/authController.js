@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import Product from "../models/productModel.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { validationResult } from "express-validator";
@@ -30,10 +31,102 @@ export const signup = async (req, res) => {
       password: hashedPassword,
     });
 
-    res.status(201).json({ message: "User created successfully", user: newUser });
+    // issue JWT so frontend can stay logged in after signup
+    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+
+    const safeUser = { name: newUser.name, email: newUser.email, _id: newUser._id };
+    res.status(201).json({ message: "User created successfully", token, user: safeUser });
   } catch (err) {
     console.error("❌ Signup error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// 🛒 Server-side Cart & Wishlist (top-level exports)
+export const getServerCart = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate({ path: 'cart.product', select: 'name price image' });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const cart = (user.cart || []).map(i => ({
+      _id: i.product?._id,
+      name: i.product?.name,
+      price: i.product?.price,
+      image: i.product?.image,
+      quantity: i.quantity,
+    })).filter(i => i._id);
+    res.json({ items: cart });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const updateServerCart = async (req, res) => {
+  try {
+    const { items } = req.body; // [{_id, quantity}]
+    if (!Array.isArray(items)) return res.status(400).json({ message: 'Invalid items' });
+    // Guard against runaway payloads
+    if (items.length > 200) return res.status(400).json({ message: 'Too many items' });
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    // Dedupe by product id and clamp quantity 1..100
+    const map = new Map();
+    for (const i of items) {
+      const id = i?._id || i?.product;
+      if (!id) continue;
+      const q = Math.max(1, Math.min(100, Number(i.quantity) || 1));
+      map.set(String(id), { product: id, quantity: q }); // last write wins
+    }
+    // Verify that all product IDs exist
+    const ids = Array.from(map.keys());
+    const existing = await Product.find({ _id: { $in: ids } }).select('_id');
+    const validSet = new Set(existing.map(d => String(d._id)));
+    user.cart = Array.from(map.entries())
+      .filter(([id]) => validSet.has(id))
+      .map(([, v]) => v);
+    await user.save();
+    res.json({ message: 'Cart updated' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getServerWishlist = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).populate({ path: 'wishlist.product', select: 'name price image' });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const wishlist = (user.wishlist || []).map(w => ({ _id: w.product?._id, name: w.product?.name, price: w.product?.price, image: w.product?.image })).filter(w => w._id);
+    res.json({ items: wishlist });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const updateServerWishlist = async (req, res) => {
+  try {
+    const { items } = req.body; // [{_id}]
+    if (!Array.isArray(items)) return res.status(400).json({ message: 'Invalid items' });
+    if (items.length > 500) return res.status(400).json({ message: 'Too many items' });
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    const set = new Set();
+    for (const i of items) {
+      const id = i?._id || i?.product;
+      if (id) set.add(String(id));
+    }
+    const wlIds = Array.from(set);
+    const wlExisting = await Product.find({ _id: { $in: wlIds } }).select('_id');
+    const wlValid = new Set(wlExisting.map(d => String(d._id)));
+    user.wishlist = wlIds.filter(id => wlValid.has(id)).map(id => ({ product: id }));
+    await user.save();
+    res.json({ message: 'Wishlist updated' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
@@ -66,6 +159,20 @@ export const login = async (req, res) => {
   }
 };
 
+// ✅ Get Profile
+export const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json({ message: "Profile retrieved successfully", user });
+  } catch (err) {
+    console.error("❌ Get profile error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // ✅ Update Profile
 export const updateProfile = async (req, res) => {
   try {
@@ -84,6 +191,9 @@ export const updateProfile = async (req, res) => {
     const updateData = {};
     if (name) updateData.name = name;
     if (email) updateData.email = email;
+    if (req.file) {
+      updateData.avatar = `/uploads/${req.file.filename}`;
+    }
 
     const user = await User.findByIdAndUpdate(userId, updateData, { new: true }).select("-password");
     

@@ -97,12 +97,75 @@ Technical: Microservices | Real-time AI | Security best practices | Performance 
 
 Future: Payment integration | Mobile app | Multi-language | Advanced analytics
 
-🔗 Repository & Contribution
-bash
-Copy code
+## 🚀 Quick Start & Deployment
+
+### Local Development
+```bash
+# Clone repository
 git clone https://github.com/sandeepbehera21/CraftConnect.git
 cd CraftConnect
-📜 License
+
+# Setup Backend
+cd backend
+cp .env.example .env
+# Edit .env with your credentials
+npm install
+npm run dev
+
+# Setup Frontend (new terminal)
+cd ..
+npm install
+npm run dev
+```
+
+### Production Deployment (Google Cloud)
+
+**IMPORTANT: Story Generation Fix Applied!**
+
+The story generation feature now works properly in production. Here's what was fixed:
+
+1. **Environment Variables**: Added proper `app.yaml` configuration
+2. **Health Check**: Added `/api/health` endpoint
+3. **Error Handling**: Improved AI service error messages
+
+```bash
+# Deploy Backend
+cd backend
+# Update app.yaml with your environment variables
+gcloud app deploy app.yaml
+
+# Deploy Frontend
+cd ..
+npm run build
+gcloud app deploy frontend-app.yaml
+```
+
+### Required Environment Variables
+
+**Backend (.env)**:
+- `GEMINI_API_KEY`: Get from [Google AI Studio](https://makersuite.google.com/app/apikey)
+- `MONGO_URI`: MongoDB connection string
+- `JWT_SECRET`: Secure random string
+- `FRONTEND_ORIGIN`: Your frontend URL
+
+**Frontend (.env)** (optional):
+- `VITE_API_BASE_URL`: Backend URL (defaults handled in config.js)
+
+### Testing Story Generation
+
+After deployment:
+1. Visit your deployed app
+2. Register/Login as artisan
+3. Go to Dashboard
+4. Enter product name → Click "Generate Story"
+5. Verify AI content appears
+
+### Health Check
+Visit: `https://your-backend-url/api/health` to verify Gemini API is configured.
+
+---
+
+## 📜 License
 MIT License
 
 <p align="center"> Made with ❤️ by Sandeep Behera for Hackathon 2025 

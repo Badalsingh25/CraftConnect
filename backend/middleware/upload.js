@@ -1,9 +1,18 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from "url";
 
-// Ensure upload directory exists (use existing 'upload' folder in backend root)
-const uploadDir = path.resolve("upload");
+// Ensure upload directory exists
+// On Google App Engine Standard, only /tmp is writable. Use that in production.
+// Resolve to the same folder that server.js serves statically:
+// - In GAE: /tmp/upload
+// - In local/dev: <backend>/upload
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadDir = process.env.GAE_ENV
+  ? path.join('/tmp', 'upload')
+  : path.join(__dirname, '..', 'upload');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

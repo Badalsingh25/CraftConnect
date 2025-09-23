@@ -18,7 +18,11 @@ import Impact from "./pages/Impact.jsx";
 import PublicProducts from "./pages/PublicProducts.jsx";
 import Sidebar from "./components/Sidebar.jsx";
 import { CartProvider } from "./state/CartContext.jsx";
-import Checkout from "./pages/Checkout.jsx";
+import Cart from "./pages/Cart.jsx";
+import Wishlist from "./pages/Wishlist.jsx";
+import { WishlistProvider } from "./state/WishlistContext.jsx";
+import MyOrders from "./pages/MyOrders.jsx";
+import ProductDetails from "./pages/ProductDetails.jsx";
 
 function Home() {
   return (
@@ -38,6 +42,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <CartProvider>
+      <WishlistProvider>
       <div className="flex flex-col min-h-screen">
         <Navbar />
 
@@ -47,10 +52,14 @@ export default function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/products" element={<PublicProducts />} /> 
+          <Route path="/products/:id" element={<ProductDetails />} /> 
           <Route path="/contact" element={<Contact />} />
           <Route path="/features" element={<Features />} />
           <Route path="/impact" element={<Impact />} />
-          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/checkout" element={<Cart />} />
+          <Route path="/cart" element={<Cart />} />
+          <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
           <Route path="/artisans" element={<ArtisansPreview />} />
 
           {/* Protected Dashboard Routes */}
@@ -77,6 +86,7 @@ export default function App() {
         <Footer />
         <ChatbotWidget />
       </div>
+      </WishlistProvider>
       </CartProvider>
     </BrowserRouter>
   );
